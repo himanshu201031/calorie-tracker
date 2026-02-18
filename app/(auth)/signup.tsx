@@ -1,28 +1,46 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useState } from "react";
 import { useRouter, Link } from "expo-router";
-import { signUp } from "../../src/services/authService";
+import { signUp, signInWithGoogle } from "../../src/services/authService";
 import { useAuthStore } from "../../src/store/authStore";
+import { Chrome as Google, Phone } from "lucide-react-native";
 
-export default function SignUpScreen() {
-    const [name, setName] = useState("");
+export default function SignupScreen() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const { isLoading, error, setError, setLoading } = useAuthStore();
     const router = useRouter();
 
-    const handleSignUp = async () => {
-        if (!email || !password || !name) {
+    const handleSignup = async () => {
+        if (!email || !password || !confirmPassword) {
             setError("Please fill in all fields.");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            setError("Passwords do not match.");
             return;
         }
 
         setLoading(true);
         try {
             await signUp(email, password);
-            // In a real app, you'd save the name to the user profile here
         } catch (err: any) {
             setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setLoading(true);
+        try {
+            await signInWithGoogle();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -30,15 +48,7 @@ export default function SignUpScreen() {
         <View style={styles.container}>
             <Text style={styles.title}>Create Account</Text>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
-
-            <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor="#666"
-                value={name}
-                onChangeText={setName}
-            />
+            {error && <View style={styles.errorContainer}><Text style={styles.errorText}>{error}</Text></View>}
 
             <TextInput
                 style={styles.input}
@@ -59,9 +69,18 @@ export default function SignUpScreen() {
                 secureTextEntry
             />
 
+            <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor="#666"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+            />
+
             <TouchableOpacity
                 style={styles.button}
-                onPress={handleSignUp}
+                onPress={handleSignup}
                 disabled={isLoading}
             >
                 {isLoading ? (
@@ -70,6 +89,31 @@ export default function SignUpScreen() {
                     <Text style={styles.buttonText}>Sign Up</Text>
                 )}
             </TouchableOpacity>
+
+            <View style={styles.separatorContainer}>
+                <View style={styles.line} />
+                <Text style={styles.separatorText}>OR</Text>
+                <View style={styles.line} />
+            </View>
+
+            <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleLogin}
+                disabled={isLoading}
+            >
+                <Google color="#fff" size={20} style={styles.socialIcon} />
+                <Text style={styles.socialButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            <Link href="/(auth)/phone-login" asChild>
+                <TouchableOpacity
+                    style={styles.socialButton}
+                    disabled={isLoading}
+                >
+                    <Phone color="#fff" size={20} style={styles.socialIcon} />
+                    <Text style={styles.socialButtonText}>Continue with Phone</Text>
+                </TouchableOpacity>
+            </Link>
 
             <View style={styles.footer}>
                 <Text style={styles.footerText}>Already have an account? </Text>
@@ -91,10 +135,23 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     title: {
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: "700",
         color: "#fff",
         marginBottom: 32,
+        textAlign: "center",
+    },
+    errorContainer: {
+        backgroundColor: "rgba(255, 77, 77, 0.1)",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: "rgba(255, 77, 77, 0.3)",
+    },
+    errorText: {
+        color: "#FF4D4D",
+        fontSize: 14,
         textAlign: "center",
     },
     input: {
@@ -104,6 +161,8 @@ const styles = StyleSheet.create({
         color: "#fff",
         marginBottom: 16,
         fontSize: 16,
+        borderWidth: 1,
+        borderColor: "#333",
     },
     button: {
         backgroundColor: "#7C5CFF",
@@ -117,10 +176,40 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "600",
     },
-    errorText: {
-        color: "#FF4D4D",
-        marginBottom: 16,
-        textAlign: "center",
+    separatorContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginVertical: 32,
+    },
+    line: {
+        flex: 1,
+        height: 1,
+        backgroundColor: "#333",
+    },
+    separatorText: {
+        color: "#666",
+        marginHorizontal: 16,
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    socialButton: {
+        flexDirection: "row",
+        backgroundColor: "#1A1A1A",
+        borderRadius: 12,
+        padding: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#333",
+    },
+    socialIcon: {
+        marginRight: 12,
+    },
+    socialButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
     },
     footer: {
         flexDirection: "row",
