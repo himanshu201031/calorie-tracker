@@ -17,12 +17,13 @@ export default function DetailsScreen() {
         gender: 'male',
         activityLevel: 'moderate',
         goal: 'maintain',
+        units: 'metric' as 'metric' | 'imperial',
     });
 
     const handleSubmit = async () => {
         if (!user) return;
 
-        const { name, age, weight, height } = formData;
+        const { name, age, weight, height, units } = formData;
         if (!name || !age || !weight || !height) {
             Alert.alert('Missing Info', 'Please fill in all fields to calculate your targets.');
             return;
@@ -30,11 +31,17 @@ export default function DetailsScreen() {
 
         try {
             // Calorie calculation logic (Mifflin-St Jeor)
-            const w = parseFloat(weight);
-            const h = parseFloat(height);
+            let w = parseFloat(weight);
+            let h = parseFloat(height);
             const a = parseInt(age);
-            let bmr = 0;
 
+            // Convert to metric if imperial for internal calculation consistency
+            if (units === 'imperial') {
+                w = w / 2.20462; // lbs to kg
+                h = h * 2.54; // inches to cm
+            }
+
+            let bmr = 0;
             if (formData.gender === 'male') {
                 bmr = 10 * w + 6.25 * h - 5 * a + 5;
             } else {
@@ -58,10 +65,11 @@ export default function DetailsScreen() {
             await createUserProfile(user.uid, {
                 ...formData,
                 age: a,
-                weight: w,
-                height: h,
+                weight: parseFloat(weight), // Save original unit value
+                height: parseFloat(height), // Save original unit value
                 calorieTarget: Math.round(calorieTarget),
                 onboardingComplete: true,
+                currentStreak: 0,
             });
 
             router.replace('/(tabs)');
@@ -73,7 +81,7 @@ export default function DetailsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <Text style={styles.title}>Your Details</Text>
                 <Text style={styles.subtitle}>Tell us about yourself to personalize your experience.</Text>
 
@@ -86,6 +94,24 @@ export default function DetailsScreen() {
                         value={formData.name}
                         onChangeText={(v) => setFormData(p => ({ ...p, name: v }))}
                     />
+                </View>
+
+                {/* Units Toggle */}
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Preferred Units</Text>
+                    <View style={styles.radioGroup}>
+                        {['metric', 'imperial'].map((u) => (
+                            <TouchableOpacity
+                                key={u}
+                                style={[styles.radioButton, formData.units === u && styles.radioActive]}
+                                onPress={() => setFormData(p => ({ ...p, units: u as 'metric' | 'imperial' }))}
+                            >
+                                <Text style={[styles.radioText, formData.units === u && styles.radioTextActive]}>
+                                    {u.charAt(0).toUpperCase() + u.slice(1)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
 
                 <View style={styles.row}>
@@ -102,10 +128,10 @@ export default function DetailsScreen() {
                     </View>
                     <View style={{ width: 20 }} />
                     <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={styles.label}>Weight (kg)</Text>
+                        <Text style={styles.label}>Weight ({formData.units === 'metric' ? 'kg' : 'lbs'})</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="70"
+                            placeholder={formData.units === 'metric' ? "70" : "154"}
                             placeholderTextColor="#666"
                             keyboardType="numeric"
                             value={formData.weight}
@@ -115,10 +141,10 @@ export default function DetailsScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Height (cm)</Text>
+                    <Text style={styles.label}>Height ({formData.units === 'metric' ? 'cm' : 'in'})</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="175"
+                        placeholder={formData.units === 'metric' ? "175" : "69"}
                         placeholderTextColor="#666"
                         keyboardType="numeric"
                         value={formData.height}

@@ -14,6 +14,9 @@ export interface UserProfile {
     calorieTarget: number;
     onboardingComplete: boolean;
     createdAt: string;
+    units: 'metric' | 'imperial';
+    currentStreak: number;
+    lastLogDate?: string;
 }
 
 export const createUserProfile = async (uid: string, data: Partial<UserProfile>) => {
@@ -38,4 +41,9 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 export const updateOnboardingStatus = async (uid: string, complete: boolean) => {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, { onboardingComplete: complete });
+};
+
+export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, data);
 };

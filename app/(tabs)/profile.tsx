@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { User, LogOut, Settings, ChevronRight, Award } from "lucide-react-native";
 import { useAuthStore } from "../../src/store/authStore";
 import { signOut } from "../../src/services/authService";
 import { getUserProfile, UserProfile } from "../../src/services/userService";
 
 export default function ProfileScreen() {
+    const router = useRouter();
     const { user, setUser } = useAuthStore();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -48,7 +50,10 @@ export default function ProfileScreen() {
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
                     <Text style={styles.title}>Profile</Text>
-                    <TouchableOpacity style={styles.iconButton}>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => router.push('/settings')}
+                    >
                         <Settings size={24} color="#FFFFFF" />
                     </TouchableOpacity>
                 </View>
@@ -79,7 +84,10 @@ export default function ProfileScreen() {
                 </View>
 
                 <View style={styles.menuSection}>
-                    <TouchableOpacity style={styles.menuItem}>
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => router.push('/achievements')}
+                    >
                         <View style={styles.menuIcon}>
                             <Award size={20} color="#FACC15" />
                         </View>

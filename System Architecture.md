@@ -155,10 +155,15 @@ Create a services folder:
   mealService.ts
   userService.ts
   aiService.ts
+  achievementService.ts
+  notificationService.ts
+  insightService.ts
 ```
 
-Use async/await
-Centralized error handling
+*   Use async/await
+*   Gemini 1.5 Flash for AI Insights
+*   expo-notifications for scheduled reminders
+*   Centralized error handling
 
 ---
 
@@ -176,6 +181,26 @@ Centralized error handling
   /constants
   /assets
 ```
+
+---
+
+# 2.9 Key Features & Modules
+
+### Achievements System
+*   Gamified tracking of milestones (streaks, water, meals).
+*   Real-time progress updates via `achievementService`.
+
+### AI Insights
+*   Generates personalized health summaries using Gemini API.
+*   Analyzes weekly meal logs for actionable nutrition tips.
+
+### Notification System
+*   Automated daily reminders for meal logging (Breakfast, Lunch, Dinner).
+*   Hydration alerts to ensure daily water goals are met.
+
+### User Settings
+*   Profile management (Weight, Height, Calorie Targets).
+*   Unit system toggle (Metric/Imperial).
 
 ---
 

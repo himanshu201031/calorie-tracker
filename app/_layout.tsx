@@ -4,6 +4,7 @@ import { useAuthStore } from "../src/store/authStore";
 import { listenToAuthState } from "../src/services/authService";
 import { getUserProfile, UserProfile } from "../src/services/userService";
 import { View, ActivityIndicator } from "react-native";
+import { requestNotificationPermissions, scheduleDailyReminders } from "../src/services/notificationService";
 
 export default function RootLayout() {
   const { user, setUser, isLoading, setLoading } = useAuthStore();
@@ -18,6 +19,12 @@ export default function RootLayout() {
       if (user) {
         const userProfile = await getUserProfile(user.uid);
         setProfile(userProfile);
+
+        // Initialize notifications if logged in
+        const granted = await requestNotificationPermissions();
+        if (granted) {
+          await scheduleDailyReminders();
+        }
       } else {
         setProfile(null);
       }

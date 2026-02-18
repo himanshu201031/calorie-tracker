@@ -1,38 +1,106 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Bell, User, Edit2, Flame, TrendingDown } from "lucide-react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Bell, User, Edit2, Flame, TrendingDown, Menu, Mic, Brain, StopCircle, Loader2 } from "lucide-react-native";
 import { useAuthStore } from "../../src/store/authStore";
 import { getUserProfile, UserProfile } from "../../src/services/userService";
-import { getDailyMeals, Meal } from "../../src/services/mealService";
+import { getDailyMeals, Meal, logMeal } from "../../src/services/mealService";
+import Animated, { FadeInDown, FadeInRight, FadeIn, ZoomIn, ZoomOut } from "react-native-reanimated";
+import { Audio } from 'expo-av';
+import { startRecording, stopRecording, analyzeAudioMeal } from "../../src/services/voiceService";
+import { Alert } from "react-native";
 
 export default function DashboardScreen() {
     const { user } = useAuthStore();
+    const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [meals, setMeals] = useState<Meal[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const today = new Date().toISOString().split('T')[0];
+    const [recording, setRecording] = useState<Audio.Recording | undefined>();
+    const [isRecording, setIsRecording] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-    useEffect(() => {
-        async function fetchData() {
-            if (!user) return;
-            try {
-                const [userProfile, todayMeals] = await Promise.all([
-                    getUserProfile(user.uid),
-                    getDailyMeals(user.uid, today)
-                ]);
-                setProfile(userProfile);
-                setMeals(todayMeals);
-            } catch (error) {
-                console.error("Error fetching dashboard data:", error);
-            } finally {
-                setLoading(false);
-            }
+    const fetchData = useCallback(async () => {
+        if (!user) return;
+        try {
+            const [userProfile, dayMeals] = await Promise.all([
+                getUserProfile(user.uid),
+                getDailyMeals(user.uid, selectedDate)
+            ]);
+            setProfile(userProfile);
+            setMeals(dayMeals);
+        } catch (error) {
+            console.error("Error fetching dashboard data:", error);
+        } finally {
+            setLoading(false);
         }
-        fetchData();
-    }, [user]);
+    }, [user, selectedDate]);
+
+    const handleStartRecording = async () => {
+        try {
+            const rec = await startRecording();
+            if (rec) {
+                setRecording(rec);
+                setIsRecording(true);
+            }
+        } catch (error) {
+            Alert.alert("Error", "Could not start recording.");
+        }
+    };
+
+    const handleStopRecording = async () => {
+        if (!recording || !user) return;
+        try {
+            setIsRecording(false);
+            setIsAnalyzing(true);
+            const base64Audio = await stopRecording(recording);
+            if (base64Audio) {
+                const analysis = await analyzeAudioMeal(base64Audio);
+
+                // Log the meal
+                await logMeal(user.uid, {
+                    foodName: analysis.foodName,
+                    calories: analysis.calories,
+                    protein: analysis.protein,
+                    carbs: analysis.carbs,
+                    fat: analysis.fat,
+                    source: 'AI',
+                    category: 'Snack', // Default for voice logs
+                    date: new Date().toISOString().split('T')[0],
+                    createdAt: new Date().toISOString()
+                });
+
+                Alert.alert("Success", `Logged ${analysis.foodName} (${analysis.calories} kcal)`);
+                fetchData();
+            }
+        } catch (error) {
+            Alert.alert("Error", "Failed to analyze voice log.");
+        } finally {
+            setIsAnalyzing(false);
+            setRecording(undefined);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData])
+    );
+
+    // Generate week days
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - d.getDay() + i);
+        return {
+            date: d.toISOString().split('T')[0],
+            dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+            dayNum: d.getDate()
+        };
+    });
 
     if (loading) {
         return (
@@ -48,13 +116,19 @@ export default function DashboardScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.iconButton}>
-                        <Text style={{ fontSize: 24 }}>☰</Text>
+                        <Menu size={24} color="#FFFFFF" />
                     </TouchableOpacity>
                     <View style={styles.headerRight}>
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() => router.push('/meal-planner')}
+                        >
+                            <Brain size={24} color="#7C5CFF" />
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.iconButton}>
                             <Bell size={24} color="#FFFFFF" />
                         </TouchableOpacity>
@@ -64,29 +138,64 @@ export default function DashboardScreen() {
                     </View>
                 </View>
 
-                {/* Greeting */}
-                <View style={styles.greeting}>
-                    <Text style={styles.greetingText}>Hellooooo</Text>
-                    <Text style={styles.nameText}>{profile?.name || 'User'}</Text>
+                {/* Greeting & Date Selector */}
+                <View style={styles.greetingSection}>
+                    <View>
+                        <Text style={styles.greetingText}>Hellooooo</Text>
+                        <Text style={styles.nameText}>{profile?.name || 'User'}</Text>
+                    </View>
                 </View>
 
-                {/* Progress Card */}
-                <LinearGradient
-                    colors={['#6D28D9', '#A78BFA']}
-                    style={styles.progressCard}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.dateSelector}
+                    contentContainerStyle={styles.dateSelectorContent}
                 >
-                    <View style={styles.progressTextSection}>
-                        <Text style={styles.progressTitle}>Your Progress</Text>
-                        <Text style={styles.progressPercent}>{progressPercent}%</Text>
-                        <Text style={styles.progressDate}>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</Text>
-                    </View>
-                    <View style={styles.progressGoalCard}>
-                        <Text style={styles.consumedKcal}>{consumedCalories}</Text>
-                        <Text style={styles.kcalUnit}>Calories</Text>
-                    </View>
-                </LinearGradient>
+                    {weekDays.map((item) => {
+                        const isSelected = item.date === selectedDate;
+                        return (
+                            <TouchableOpacity
+                                key={item.date}
+                                style={[styles.dateItem, isSelected && styles.dateItemActive]}
+                                onPress={() => setSelectedDate(item.date)}
+                            >
+                                <Text style={[styles.dayName, isSelected && styles.dateTextActive]}>{item.dayName}</Text>
+                                <Text style={[styles.dayNum, isSelected && styles.dateTextActive]}>{item.dayNum}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
 
-                <View style={styles.statsRow}>
+                {/* Progress Card */}
+                <Animated.View entering={FadeInDown.delay(200)}>
+                    <LinearGradient
+                        colors={['#7C5CFF', '#C084FC']}
+                        style={styles.progressCard}
+                    >
+                        <View style={styles.progressHeader}>
+                            <View style={styles.progressTextSection}>
+                                <Text style={styles.progressTitle}>Your Progress</Text>
+                                <Text style={styles.progressPercent}>{progressPercent}%</Text>
+                                <Text style={styles.progressDate}>
+                                    {new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                                </Text>
+                            </View>
+                            {profile?.currentStreak && profile.currentStreak > 0 ? (
+                                <View style={styles.streakBadge}>
+                                    <Flame size={20} color="#FACC15" fill="#FACC15" />
+                                    <Text style={styles.streakText}>{profile.currentStreak} Day Streak</Text>
+                                </View>
+                            ) : null}
+                        </View>
+                        <View style={styles.progressGoalCard}>
+                            <Text style={styles.consumedKcal}>{consumedCalories}</Text>
+                            <Text style={styles.kcalUnit}>Calories</Text>
+                        </View>
+                    </LinearGradient>
+                </Animated.View>
+
+                <Animated.View entering={FadeInDown.delay(400)} style={styles.statsRow}>
                     {/* Weight Card */}
                     <View style={[styles.statCard, { backgroundColor: '#FB923C' }]}>
                         <View style={styles.statHeader}>
@@ -106,35 +215,75 @@ export default function DashboardScreen() {
                         <Text style={styles.statValue}>{calorieTarget}</Text>
                         <Text style={styles.statSubValue}>Kcal / day</Text>
                     </View>
-                </View>
+                </Animated.View>
 
-                {/* Recent Meals */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Today's Meals</Text>
-                    <TouchableOpacity>
-                        <Text style={styles.seeAll}>See All</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {meals.length === 0 ? (
-                    <View style={styles.emptyMeals}>
-                        <Text style={styles.emptyText}>No meals logged today yet.</Text>
+                {/* Today's Meals Grouped */}
+                <Animated.View entering={FadeInDown.delay(600)}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Today's Meals</Text>
                     </View>
-                ) : (
-                    meals.map((meal) => (
-                        <View key={meal.id} style={styles.mealCard}>
-                            <View style={styles.mealInfo}>
-                                <Text style={styles.mealName}>{meal.foodName}</Text>
-                                <Text style={styles.mealMacros}>P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fat}g</Text>
-                            </View>
-                            <View style={styles.mealRight}>
-                                <Text style={styles.mealKcal}>{meal.calories} kcal</Text>
-                                <Edit2 size={16} color="#7C5CFF" />
-                            </View>
+
+                    {meals.length === 0 ? (
+                        <View style={styles.emptyMeals}>
+                            <Text style={styles.emptyText}>No meals logged today yet.</Text>
                         </View>
-                    ))
-                )}
+                    ) : (
+                        (['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const).map((category) => {
+                            const categoryMeals = meals.filter(m => m.category === category);
+                            if (categoryMeals.length === 0) return null;
+
+                            return (
+                                <View key={category} style={styles.categorySection}>
+                                    <View style={styles.categoryHeader}>
+                                        <Text style={styles.categoryTitle}>{category}</Text>
+                                        <Text style={styles.categoryKcal}>
+                                            {categoryMeals.reduce((sum, m) => sum + m.calories, 0)} kcal
+                                        </Text>
+                                    </View>
+                                    {categoryMeals.map((meal) => (
+                                        <Animated.View entering={FadeInRight} key={meal.id} style={styles.mealCard}>
+                                            <View style={styles.mealInfo}>
+                                                <Text style={styles.mealName}>{meal.foodName}</Text>
+                                                <Text style={styles.mealMacros}>P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fat}g</Text>
+                                            </View>
+                                            <View style={styles.mealRight}>
+                                                <Text style={styles.mealKcal}>{meal.calories} kcal</Text>
+                                                <Edit2 size={16} color="#7C5CFF" />
+                                            </View>
+                                        </Animated.View>
+                                    ))}
+                                </View>
+                            );
+                        })
+                    )}
+                </Animated.View>
             </ScrollView>
+
+            {/* AI Voice Assistant Floating Button */}
+            <TouchableOpacity
+                style={[styles.voiceFab, isRecording && styles.voiceFabRecording]}
+                onPress={isRecording ? handleStopRecording : handleStartRecording}
+                disabled={isAnalyzing}
+            >
+                {isAnalyzing ? (
+                    <Loader2 size={24} color="#FFF" className="animate-spin" />
+                ) : isRecording ? (
+                    <StopCircle size={24} color="#FFF" />
+                ) : (
+                    <Mic size={24} color="#FFF" />
+                )}
+            </TouchableOpacity>
+
+            {isRecording && (
+                <Animated.View
+                    entering={ZoomIn}
+                    exiting={ZoomOut}
+                    style={styles.recordingOverlay}
+                >
+                    <Text style={styles.recordingText}>Listening...</Text>
+                    <Text style={styles.recordingSubText}>Tap again to analyze</Text>
+                </Animated.View>
+            )}
         </SafeAreaView>
     );
 }
@@ -184,22 +333,73 @@ const styles = StyleSheet.create({
     greeting: {
         marginBottom: 24,
     },
+    greetingSection: {
+        marginBottom: 20,
+    },
     greetingText: {
+        fontSize: 16,
         color: '#999',
-        fontSize: 18,
     },
     nameText: {
-        color: '#FFFFFF',
-        fontSize: 32,
+        fontSize: 24,
         fontWeight: 'bold',
+        color: '#FFF',
+    },
+    dateSelector: {
+        marginBottom: 24,
+    },
+    dateSelectorContent: {
+        paddingRight: 20,
+    },
+    dateItem: {
+        width: 60,
+        height: 80,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#1A1A1A',
+        borderRadius: 20,
+        marginRight: 10,
+    },
+    dateItemActive: {
+        backgroundColor: '#FFF',
+    },
+    dayName: {
+        fontSize: 12,
+        color: '#666',
+        marginBottom: 4,
+    },
+    dayNum: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#FFF',
+    },
+    dateTextActive: {
+        color: '#000',
     },
     progressCard: {
         borderRadius: 24,
         padding: 24,
+        marginBottom: 30,
+    },
+    progressHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: 20,
+    },
+    streakBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 6,
+    },
+    streakText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     progressTextSection: {
         flex: 1,
@@ -284,6 +484,27 @@ const styles = StyleSheet.create({
         color: '#7C5CFF',
         fontSize: 14,
     },
+    categorySection: {
+        marginBottom: 24,
+    },
+    categoryHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingHorizontal: 4,
+    },
+    categoryTitle: {
+        color: '#999',
+        fontSize: 14,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    categoryKcal: {
+        color: '#666',
+        fontSize: 12,
+    },
     mealCard: {
         backgroundColor: '#1A1A1A',
         borderRadius: 16,
@@ -321,6 +542,48 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         color: '#666',
+        fontSize: 14,
+    },
+    voiceFab: {
+        position: 'absolute',
+        bottom: 30,
+        right: 30,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#7C5CFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: '#7C5CFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+    voiceFabRecording: {
+        backgroundColor: '#FF4D4D',
+        transform: [{ scale: 1.1 }],
+    },
+    recordingOverlay: {
+        position: 'absolute',
+        top: '40%',
+        left: '10%',
+        right: '10%',
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        padding: 30,
+        borderRadius: 24,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(124, 92, 255, 0.3)',
+    },
+    recordingText: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    recordingSubText: {
+        color: '#999',
         fontSize: 14,
     },
 });

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Clock, Trash2, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/authStore';
 import { getAllMeals, Meal, deleteMeal } from '../../src/services/mealService';
+import Animated, { FadeInLeft } from 'react-native-reanimated';
 
 interface GroupedMeal {
     date: string;
@@ -97,24 +98,34 @@ export default function HistoryScreen() {
     };
 
     const renderMealItem = ({ item }: { item: Meal }) => (
-        <View style={styles.mealItem}>
+        <Animated.View entering={FadeInLeft} style={styles.mealItem}>
             <View style={styles.mealInfo}>
-                <Text style={styles.mealName}>{item.foodName}</Text>
+                <View style={styles.mealHeaderRow}>
+                    <Text style={styles.mealName}>{item.foodName}</Text>
+                    <View style={styles.mealCategoryTag}>
+                        <Text style={styles.mealCategoryText}>{item.category || 'Snack'}</Text>
+                    </View>
+                </View>
                 <Text style={styles.mealMacros}>
-                    {item.calories} kcal • {item.protein}g P • {item.carbs}g C • {item.fat}g F
+                    P: {item.protein}g • C: {item.carbs}g • F: {item.fat}g
                 </Text>
             </View>
-            <TouchableOpacity
-                onPress={() => item.id && handleDelete(item.id)}
-                style={styles.deleteButton}
-            >
-                <Trash2 size={18} color="#FF4D4D" />
-            </TouchableOpacity>
-        </View>
+            <View style={styles.mealRight}>
+                <Text style={styles.mealKcal}>{item.calories}</Text>
+                <Text style={styles.kcalUnit}>kcal</Text>
+                <TouchableOpacity
+                    onPress={() => item.id && handleDelete(item.id)}
+                    style={styles.deleteButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Trash2 size={16} color="#FF4D4D" />
+                </TouchableOpacity>
+            </View>
+        </Animated.View>
     );
 
     const renderGroup = ({ item }: { item: GroupedMeal }) => (
-        <View style={styles.groupContainer}>
+        <Animated.View entering={FadeInLeft} style={styles.groupContainer}>
             <View style={styles.groupHeader}>
                 <View style={styles.dateRow}>
                     <CalendarIcon size={16} color="#7C5CFF" />
@@ -127,7 +138,7 @@ export default function HistoryScreen() {
                     {renderMealItem({ item: meal })}
                 </View>
             ))}
-        </View>
+        </Animated.View>
     );
 
     if (loading && !refreshing) {
@@ -234,18 +245,52 @@ const styles = StyleSheet.create({
     mealInfo: {
         flex: 1,
     },
+    mealHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
     mealName: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 2,
+        fontWeight: 'bold',
+    },
+    mealCategoryTag: {
+        backgroundColor: 'rgba(124, 92, 255, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(124, 92, 255, 0.2)',
+    },
+    mealCategoryText: {
+        color: '#7C5CFF',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
     },
     mealMacros: {
         color: '#888',
         fontSize: 12,
     },
+    mealRight: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 4,
+    },
+    mealKcal: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    kcalUnit: {
+        color: '#666',
+        fontSize: 10,
+    },
     deleteButton: {
-        padding: 8,
+        marginLeft: 12,
+        padding: 4,
     },
     emptyContainer: {
         padding: 40,

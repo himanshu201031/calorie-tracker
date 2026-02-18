@@ -16,12 +16,20 @@ export default function ScanScreen() {
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
     const [showReview, setShowReview] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'>('Breakfast');
 
     const { user } = useAuthStore();
     const router = useRouter();
 
     useEffect(() => {
         if (!permission) requestPermission();
+
+        // Suggest category based on time
+        const hour = new Date().getHours();
+        if (hour >= 5 && hour < 11) setSelectedCategory('Breakfast');
+        else if (hour >= 11 && hour < 16) setSelectedCategory('Lunch');
+        else if (hour >= 16 && hour < 22) setSelectedCategory('Dinner');
+        else setSelectedCategory('Snack');
     }, [permission]);
 
     if (!permission) return <View style={styles.container} />;
@@ -47,7 +55,6 @@ export default function ScanScreen() {
                 });
 
                 if (photo) {
-                    // Resize to avoid large payloads
                     const resizedPhoto = await ImageManipulator.manipulateAsync(
                         photo.uri,
                         [{ resize: { width: 800 } }],
@@ -83,6 +90,7 @@ export default function ScanScreen() {
                 carbs: analysisResult.carbs,
                 fat: analysisResult.fat,
                 source: 'AI',
+                category: selectedCategory,
                 date: today,
                 createdAt: new Date().toISOString(),
                 imageUrl: capturedImage || undefined
@@ -91,7 +99,7 @@ export default function ScanScreen() {
             setShowReview(false);
             setCapturedImage(null);
             setAnalysisResult(null);
-            router.push('/(tabs)');
+            router.replace('/(tabs)');
         } catch (error) {
             Alert.alert("Error", "Failed to save meal.");
         }
@@ -154,6 +162,28 @@ export default function ScanScreen() {
                             <View style={styles.resultContainer}>
                                 <Text style={styles.foodName}>{analysisResult?.foodName}</Text>
 
+                                <Text style={styles.sectionLabel}>Category</Text>
+                                <View style={styles.categoryGrid}>
+                                    {(['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const).map((cat) => (
+                                        <TouchableOpacity
+                                            key={cat}
+                                            style={[
+                                                styles.categoryButton,
+                                                selectedCategory === cat && styles.categoryButtonActive
+                                            ]}
+                                            onPress={() => setSelectedCategory(cat)}
+                                        >
+                                            <Text style={[
+                                                styles.categoryButtonText,
+                                                selectedCategory === cat && styles.categoryButtonTextActive
+                                            ]}>
+                                                {cat}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <Text style={styles.sectionLabel}>Nutrition Facts</Text>
                                 <View style={styles.statsGrid}>
                                     <View style={styles.statBox}>
                                         <Text style={styles.statLabel}>Calories</Text>
@@ -338,6 +368,40 @@ const styles = StyleSheet.create({
     },
     resultContainer: {
         marginBottom: 24,
+    },
+    sectionLabel: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 12,
+        marginTop: 8,
+    },
+    categoryGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginBottom: 20,
+    },
+    categoryButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+        backgroundColor: '#2A2A2A',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    categoryButtonActive: {
+        backgroundColor: '#7C5CFF',
+        borderColor: '#7C5CFF',
+    },
+    categoryButtonText: {
+        color: '#999',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    categoryButtonTextActive: {
+        color: '#FFF',
+        fontWeight: 'bold',
     },
     foodName: {
         fontSize: 28,

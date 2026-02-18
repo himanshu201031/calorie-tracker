@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
-import { Home, Flame, Clock, User } from "lucide-react-native";
-import { Platform, View } from 'react-native';
+import { Home, Flame, Clock, User, PieChart } from "lucide-react-native";
+import { Platform, View, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
     return (
@@ -10,8 +10,8 @@ export default function TabLayout() {
                 tabBarStyle: {
                     position: 'absolute',
                     bottom: 24,
-                    left: 20,
-                    right: 20,
+                    left: 10,
+                    right: 10,
                     backgroundColor: "rgba(26, 26, 26, 0.95)",
                     borderRadius: 32,
                     height: 64,
@@ -34,7 +34,18 @@ export default function TabLayout() {
                     title: "Home",
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.tabIcon, focused && styles.activeTab]}>
-                            <Home size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+                            <Home size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
+                        </View>
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="stats"
+                options={{
+                    title: "Stats",
+                    tabBarIcon: ({ color, focused }) => (
+                        <View style={[styles.tabIcon, focused && styles.activeTab]}>
+                            <PieChart size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                         </View>
                     ),
                 }}
@@ -45,7 +56,7 @@ export default function TabLayout() {
                     title: "Scan",
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.tabIcon, focused && styles.activeTab]}>
-                            <Flame size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+                            <Flame size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                         </View>
                     ),
                 }}
@@ -56,7 +67,7 @@ export default function TabLayout() {
                     title: "History",
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.tabIcon, focused && styles.activeTab]}>
-                            <Clock size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+                            <Clock size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                         </View>
                     ),
                 }}
@@ -67,7 +78,7 @@ export default function TabLayout() {
                     title: "Profile",
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.tabIcon, focused && styles.activeTab]}>
-                            <User size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+                            <User size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                         </View>
                     ),
                 }}
@@ -76,15 +87,15 @@ export default function TabLayout() {
     );
 }
 
-const styles = {
+const styles = StyleSheet.create({
     tabIcon: {
         width: 44,
         height: 44,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
         borderRadius: 22,
     },
     activeTab: {
         backgroundColor: '#7C5CFF',
     },
-};
+});

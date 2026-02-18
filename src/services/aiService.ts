@@ -55,3 +55,36 @@ export const analyzeImage = async (base64Image: string): Promise<AIAnalysisResul
         throw new Error("Failed to analyze image content.");
     }
 };
+export const analyzeText = async (description: string): Promise<AIAnalysisResult> => {
+    if (!API_KEY) {
+        throw new Error("Gemini API key not configured.");
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Analyze this food description: "${description}" and provide nutritional information. 
+    Return ONLY a JSON object with the following fields:
+    {
+        "foodName": "Main food item identified",
+        "calories": number,
+        "protein": number (grams),
+        "carbs": number (grams),
+        "fat": number (grams),
+        "confidence": number (0-1)
+    }`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        throw new Error("Could not parse AI response");
+    } catch (e) {
+        console.error("AI Text Analysis Error:", text);
+        throw new Error("Failed to analyze text content.");
+    }
+};
